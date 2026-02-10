@@ -252,6 +252,9 @@ pub enum InvokeCommand {
     name: String,
   },
   WmCleanupWindows,
+  /// Debug: inject a fake ghost window with an invalid HWND into the
+  /// container tree.  Use with wm-cleanup-windows to test cleanup.
+  WmInjectGhost,
   WmExit,
   WmRedraw,
   WmReloadConfig,
