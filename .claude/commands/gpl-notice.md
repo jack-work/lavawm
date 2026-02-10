@@ -1,10 +1,6 @@
-# Claude Code Instructions for LavaWM
+Check all .rs files that have been modified in this session or are staged in git for GPL-3.0 copyright headers. For any file missing the header, prepend the following block:
 
-## GPL-3.0 Compliance
-
-When modifying or creating any `.rs` source file, ensure it has the GPL-3.0 copyright header at the top of the file. If the header is missing, add it before any other content:
-
-```rust
+```
 // Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
 // Copyright (C) 2026 jack-work <https://github.com/jack-work>
 //
@@ -24,23 +20,8 @@ When modifying or creating any `.rs` source file, ensure it has the GPL-3.0 copy
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 ```
 
-Use `/gpl-notice` to batch-check and fix all modified files.
-
-## Build
-
-- Toolchain: Rust nightly, target `aarch64-pc-windows-msvc` (local) or both x64+arm64 (CI)
-- Build: `cargo build --release`
-- Binaries: `lavawm.exe`, `lavawm-cli.exe`, `lavawm-watcher.exe`
-
-## Branch
-
-- Default branch is `master`
-- CI runs lint on push to master and PRs
-- Release CI triggers on tag push (`v*`)
-
-## Naming
-
-- Binary names: `lavawm`, `lavawm-cli`, `lavawm-watcher`
-- Config dir: `~/.glzr/lavawm/`
-- Env var: `LAVAWM_CONFIG_PATH`
-- IPC port: 6123 (shared with GlazeWM/Zebar)
+Steps:
+1. Run `git diff --name-only HEAD -- '*.rs'` to find modified .rs files
+2. For each file, check if the first line starts with `// Copyright`
+3. If not, prepend the header block above (followed by a blank line before the existing code)
+4. Report which files were updated
