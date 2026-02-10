@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::{BindingModeConfig, ContainerDto, TilingDirection, WmEvent};
 
-pub const DEFAULT_IPC_PORT: u32 = 6124;
+pub const DEFAULT_IPC_PORT: u32 = 6123;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "messageType", rename_all = "snake_case")]
