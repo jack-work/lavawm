@@ -26,10 +26,6 @@ use crate::{
   user_config::UserConfig,
 };
 
-/// Interval in seconds for cleaning up invalid/ghost windows.
-/// Set to 5 seconds to balance between responsiveness and performance.
-pub const WINDOW_CLEANUP_INTERVAL_SECS: u64 = 5;
-
 pub struct WmState {
   /// Root node of the container tree. Monitors are the children of the
   /// root node, followed by workspaces, then split containers/windows.

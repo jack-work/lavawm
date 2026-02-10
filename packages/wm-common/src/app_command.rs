@@ -251,6 +251,7 @@ pub enum InvokeCommand {
     #[clap(long)]
     name: String,
   },
+  WmCleanupWindows,
   WmExit,
   WmRedraw,
   WmReloadConfig,
