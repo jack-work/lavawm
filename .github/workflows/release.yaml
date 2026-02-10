@@ -1,11 +1,13 @@
 name: Release
 
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
-      version_number:
-        type: string
-        description: Version number to use for the build (e.g. `1.0.0`).
+      tag:
+        description: "Tag to release (e.g. v0.2.0). Leave empty to use latest tag."
+        required: false
 
 permissions:
   contents: write
@@ -13,46 +15,97 @@ permissions:
 concurrency:
   group: release
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  package:
-    uses: ./.github/workflows/package.yaml
-    secrets: inherit
-    with:
-      version_number: ${{ inputs.version_number }}
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            arch: x64
+          - target: aarch64-pc-windows-msvc
+            arch: arm64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@21dc36fb71dd22e3317045c0c31a3f4249868b17
+        with:
+          toolchain: nightly
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            VERSION="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)"
+          fi
+          # Strip leading 'v' for the cargo version number
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "number=${VERSION#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release
+        env:
+          VERSION_NUMBER: ${{ steps.version.outputs.number }}
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binaries
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp target/${{ matrix.target }}/release/lavawm.exe staging/
+          cp target/${{ matrix.target }}/release/lavawm-cli.exe staging/
+          cp target/${{ matrix.target }}/release/lavawm-watcher.exe staging/
+          cd staging
+          7z a ../lavawm-${{ steps.version.outputs.tag }}-${{ matrix.arch }}.zip *
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lavawm-${{ matrix.arch }}
+          if-no-files-found: error
+          path: lavawm-*.zip
 
   release:
-    needs: package
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download installers
-        uses: actions/download-artifact@v8
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
-          pattern: package-*
-          merge-multiple: true
+          path: artifacts/
 
-      - name: Rename installers
-        env:
-          # Add a `v` prefix to the version number.
-          VERSION: v${{ inputs.version_number }}
+      - name: Resolve tag
+        id: tag
+        shell: bash
         run: |
-          mv installer-universal.exe "glazewm-$VERSION.exe"
-          mv installer-arm64.msi "standalone-glazewm-$VERSION-arm64.msi"
-          mv installer-x64.msi "standalone-glazewm-$VERSION-x64.msi"
-          mv installer-universal.dmg "glazewm-$VERSION.dmg"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=$(git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0)" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Create draft release
-        env:
-          # Add a `v` prefix to the version number.
-          VERSION: v${{ inputs.version_number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "$VERSION" \
-            --title "$VERSION" \
-            --generate-notes \
-            --draft \
-            "./glazewm-$VERSION.exe#$VERSION for Windows (standard)" \
-            "./standalone-glazewm-$VERSION-arm64.msi#$VERSION for Windows (standalone, arm64)" \
-            "./standalone-glazewm-$VERSION-x64.msi#$VERSION for Windows (standalone, x64)" \
-            "./glazewm-$VERSION.dmg#$VERSION for macOS"
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: LavaWM ${{ steps.tag.outputs.name }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/lavawm-x64/*.zip
+            artifacts/lavawm-arm64/*.zip

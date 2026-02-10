@@ -8,6 +8,7 @@ jobs:
   pr-title-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: glzr-io/actions/semantic-prs@main
-        with:
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check PR title format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
