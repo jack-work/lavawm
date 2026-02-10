@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::{collections::HashMap, time::Instant};
 
 use anyhow::Context;
 use tokio::sync::mpsc::{self};
@@ -56,6 +56,13 @@ pub struct WmState {
   /// `ignore` command.
   pub ignored_windows: Vec<NativeWindow>,
 
+  /// Per-window cooldown timestamps for fullscreen state transitions.
+  ///
+  /// Prevents oscillation when a window (e.g. RDP client) fights with the
+  /// WM over fullscreen state, causing rapid fullscreen/floating cycles.
+  /// Keyed by window handle (isize).
+  pub fullscreen_cooldowns: HashMap<isize, Instant>,
+
   /// Whether the WM is paused.
   pub is_paused: bool,
 
@@ -83,6 +90,7 @@ impl WmState {
       prev_effects_window: None,
       recent_workspace_name: None,
       unmanaged_or_minimized_timestamp: None,
+      fullscreen_cooldowns: HashMap::new(),
       binding_modes: Vec::new(),
       ignored_windows: Vec::new(),
       is_paused: false,
