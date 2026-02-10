@@ -4,23 +4,28 @@ use anyhow::Context;
 use tokio::sync::mpsc::{self};
 use tracing::warn;
 use uuid::Uuid;
-use wm_common::{BindingModeConfig, HideCorner, WindowState, WmEvent};
+use wm_common::{
+  BindingModeConfig, FloatingStateConfig, HideCorner, WindowState,
+  WmEvent,
+};
 use wm_platform::{
-  Direction, Dispatcher, Display, NativeWindow, Point, Rect,
+  Direction, Dispatcher, Display, LengthValue, NativeWindow, Point, Rect,
+  RectDelta,
 };
 #[cfg(target_os = "windows")]
 use wm_platform::{NativeWindowWindowsExt, OpacityValue};
 
 use crate::{
   commands::{
-    container::set_focused_descendant,
+    container::{attach_container, set_focused_descendant},
     general::platform_sync,
     monitor::{add_monitor, move_bounded_workspaces_to_new_monitor},
     window::{manage_window, unmanage_window},
   },
   models::{
-    Container, Monitor, NativeMonitorProperties, RootContainer,
-    WindowContainer, Workspace, WorkspaceTarget,
+    Container, Monitor, NativeMonitorProperties, NativeWindowProperties,
+    NonTilingWindow, RootContainer, WindowContainer, Workspace,
+    WorkspaceTarget,
   },
   pending_sync::PendingSync,
   traits::{CommonGetters, PositionGetters, WindowGetters},
@@ -654,6 +659,54 @@ impl WmState {
           .is_ok_and(|rect| rect.contains_point(point))
       })
       .cloned()
+  }
+
+  /// Injects a fake window with an invalid HWND into the container tree.
+  ///
+  /// Used to test `wm-cleanup-windows`.
+  pub fn inject_ghost_window(&mut self) -> anyhow::Result<()> {
+    let workspace = self
+      .focused_container()
+      .context("No focused container.")?
+      .workspace()
+      .context("No workspace.")?;
+
+    let native = NativeWindow::from_handle(1); // invalid HWND
+    let zero = LengthValue::from_px(0);
+    let border_delta =
+      RectDelta::new(zero.clone(), zero.clone(), zero.clone(), zero);
+    let floating_placement = Rect::from_xy(0, 0, 400, 300);
+    let properties = NativeWindowProperties {
+      title: String::from("ghost"),
+      #[cfg(target_os = "windows")]
+      class_name: String::from("ghost"),
+      process_name: String::from("ghost"),
+      frame: floating_placement.clone(),
+      is_minimized: false,
+      is_maximized: false,
+      is_resizable: true,
+      #[cfg(target_os = "windows")]
+      shadow_borders: border_delta.clone(),
+    };
+
+    let ghost = NonTilingWindow::new(
+      None,
+      native,
+      properties,
+      WindowState::Floating(FloatingStateConfig::default()),
+      None,
+      border_delta,
+      None,
+      floating_placement,
+      false,
+      Vec::new(),
+      None,
+    );
+
+    attach_container(&ghost.clone().into(), &workspace.into(), None)?;
+
+    tracing::info!("Injected ghost window: {:?}", ghost.id());
+    Ok(())
   }
 
   /// Cleans up windows that are no longer alive.
