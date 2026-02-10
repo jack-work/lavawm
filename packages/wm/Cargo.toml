@@ -5,10 +5,10 @@ description = "GlazeWM is a tiling window manager for Windows inspired by i3 and
 repository = "https://github.com/glzr-io/glazewm"
 license = "GPL-3"
 edition = "2021"
-default-run = "glazewm"
+default-run = "lavawm"
 
 [[bin]]
-name = "glazewm"
+name = "lavawm"
 path = "src/main.rs"
 
 [features]

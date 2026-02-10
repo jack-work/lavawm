@@ -12,13 +12,13 @@ use crate::{
 const VERSION: &str = env!("VERSION_NUMBER");
 
 #[derive(Clone, Debug, Parser)]
-#[clap(name = "glazewm", author, version = VERSION, about, long_about = None)]
+#[clap(name = "lavawm", author, version = VERSION, about, long_about = None)]
 pub enum AppCommand {
   /// Starts the window manager.
   Start {
     /// Custom path to user config file.
     ///
-    /// The default path is `%userprofile%/.glzr/glazewm/config.yaml`
+    /// The default path is `%userprofile%/.glzr/lavawm/config.yaml`
     #[clap(short = 'c', long = "config", value_hint = clap::ValueHint::FilePath)]
     config_path: Option<PathBuf>,
 

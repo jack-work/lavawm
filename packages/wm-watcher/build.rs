@@ -9,9 +9,9 @@ fn main() {
   // Set language to English (US).
   res.set_language(0x0409);
 
-  res.set("OriginalFilename", "glazewm-watcher.exe");
-  res.set("ProductName", "GlazeWM Watcher");
-  res.set("FileDescription", "GlazeWM Watcher");
+  res.set("OriginalFilename", "lavawm-watcher.exe");
+  res.set("ProductName", "LavaWM Watcher");
+  res.set("FileDescription", "LavaWM Watcher");
 
   let version_parts = env!("VERSION_NUMBER")
     .split('.')

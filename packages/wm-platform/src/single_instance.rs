@@ -18,8 +18,9 @@ pub struct SingleInstance {
 }
 
 /// Arbitrary GUID used to identify the application.
+/// Changed from GlazeWM's GUID to allow side-by-side operation.
 const APP_GUID: PCWSTR =
-  w!("Global\\325d0ed7-7f60-4925-8d1b-aa287b26b218");
+  w!("Global\\a1b2c3d4-5e6f-7a8b-9c0d-lavawm000001");
 
 impl SingleInstance {
   /// Creates a new system-wide mutex to ensure that only one instance of
