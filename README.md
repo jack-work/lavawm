@@ -1,13 +1,12 @@
 <div align="center">
-
   <br>
-  <img src="./lavalogo.png" width="280" alt="LavaWM logo" />
-  <br>
-  <br>
-
-# &Lambda;&Alpha;&Beta;&Alpha; WM
-
-### *&laquo; A tiling window manager, layered with care &raquo;*
+  <table><tr>
+    <td><img src="./lavalogo.png" width="200" alt="LavaWM logo" /></td>
+    <td>
+      <h1 style="font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, 'Times New Roman', serif; font-size: 4em; margin: 0; letter-spacing: 0.08em;">𝐋 𝐀 𝐕 𝐀</h1>
+      <p><em>a tiling window manager,<br>layered with care</em></p>
+    </td>
+  </tr></table>
 
 **Fork of [GlazeWM](https://github.com/glzr-io/glazewm) &mdash; built for Windows on ARM, shaped by baklava and ambition.**
 
@@ -17,7 +16,7 @@
 
 ## What is this?
 
-**LavaWM** (or &Lambda;&Alpha;&Beta;&Alpha;, if you're feeling Mediterranean) is a keyboard-driven tiling window manager for Windows, forked from the excellent [GlazeWM v3](https://github.com/glzr-io/glazewm). It inherits all the golden, flaky layers of GlazeWM and adds a few of its own:
+**LavaWM** is a keyboard-driven tiling window manager for Windows, forked from the excellent [GlazeWM v3](https://github.com/glzr-io/glazewm). It inherits all the golden, flaky layers of GlazeWM and adds a few of its own:
 
 - Ghost window cleanup (`wm-cleanup-windows`) &mdash; manually sweep away stale windows
 - Fullscreen oscillation fix &mdash; stops RDP and other apps from fighting the WM in a rapid fullscreen/floating loop
@@ -44,6 +43,19 @@ This project is managed largely by [Claude Code](https://claude.com/claude-code)
 - If the WM does something weird, it might be the AI's fault. File a bug.
 
 ## Getting Started
+
+### Install via Scoop
+
+```powershell
+scoop bucket add lavawm https://github.com/jack-work/scoop-lavawm
+scoop install lavawm
+```
+
+### Download from GitHub Releases
+
+Grab the latest zip for your architecture from [Releases](https://github.com/jack-work/lavawm/releases):
+- **x64**: `lavawm-vX.Y.Z-x64.zip`
+- **ARM64**: `lavawm-vX.Y.Z-arm64.zip`
 
 ### Build from source
 
@@ -128,6 +140,6 @@ You are free to fork, modify, and redistribute &mdash; but derivative works must
 
 *Baked with pistachios and honey by [@jack-work](https://github.com/jack-work)*
 
-*&Lambda;&Alpha;&Beta;&Alpha; &mdash; layer by layer*
+*𝐋𝐀𝐕𝐀 &mdash; layer by layer*
 
 </div>
