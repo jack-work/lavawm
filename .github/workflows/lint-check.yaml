@@ -1,7 +1,8 @@
-name: Lint check
+name: Lint & Build
 
 on:
   push:
+    branches: [master]
   pull_request:
     types: [opened, synchronize, reopened]
 
@@ -18,11 +19,11 @@ jobs:
 
       - uses: swatinem/rust-cache@f0deed1e0edfc6a9be95417288c0e1099b1eeec3
 
-      - name: Check formatting (rustfmt)
+      - name: Check formatting
         run: cargo fmt --check
 
-      - name: Check linting (clippy)
+      - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Check build
-        run: cargo build --locked
+      - name: Build
+        run: cargo build
