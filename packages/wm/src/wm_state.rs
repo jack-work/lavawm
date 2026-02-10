@@ -5,10 +5,12 @@ use tokio::sync::mpsc::{self};
 use tracing::warn;
 use uuid::Uuid;
 use wm_common::{
-  BindingModeConfig, Direction, Point, WindowState, WmEvent,
+  BindingModeConfig, Direction, FloatingStateConfig, LengthValue, Point,
+  Rect, RectDelta, WindowState, WmEvent,
 };
 use wm_platform::{NativeMonitor, NativeWindow, Platform};
 
+use crate::commands::container::attach_container;
 use crate::commands::window::unmanage_window;
 use crate::{
   commands::{
@@ -18,8 +20,8 @@ use crate::{
     window::manage_window,
   },
   models::{
-    Container, Monitor, RootContainer, WindowContainer, Workspace,
-    WorkspaceTarget,
+    Container, Monitor, NonTilingWindow, RootContainer, WindowContainer,
+    Workspace, WorkspaceTarget,
   },
   pending_sync::PendingSync,
   traits::{CommonGetters, PositionGetters, WindowGetters},
@@ -594,6 +596,47 @@ impl WmState {
   /// This addresses the "ghost window" issue where applications terminate
   /// without properly sending window destroy events, leaving invalid
   /// window references in GlazeWM's state.
+  /// Inject a fake window with an invalid HWND into the container tree.
+  /// Used to test `wm-cleanup-windows`.
+  pub fn inject_ghost_window(&mut self) -> anyhow::Result<()> {
+    let workspace = self
+      .focused_container()
+      .context("No focused container.")?
+      .workspace()
+      .context("No workspace.")?;
+
+    let native = NativeWindow::new(1); // invalid HWND
+    let border_delta = RectDelta::new(
+      LengthValue::from_px(0),
+      LengthValue::from_px(0),
+      LengthValue::from_px(0),
+      LengthValue::from_px(0),
+    );
+    let floating_placement = Rect::from_xy(0, 0, 400, 300);
+
+    let ghost = NonTilingWindow::new(
+      None,
+      native,
+      WindowState::Floating(FloatingStateConfig::default()),
+      None,
+      border_delta,
+      None,
+      floating_placement,
+      false,
+      Vec::new(),
+      None,
+    );
+
+    attach_container(
+      &ghost.clone().into(),
+      &workspace.into(),
+      None,
+    )?;
+
+    tracing::info!("Injected ghost window: {:?}", ghost.id());
+    Ok(())
+  }
+
   pub fn cleanup_invalid_windows(&mut self) -> anyhow::Result<()> {
     let invalid_windows = self
       .windows()
