@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use anyhow::Context;
 use tracing::info;
 use wm_common::{
@@ -81,13 +83,26 @@ pub fn handle_window_location_changed(
 
     let is_fullscreen = window.native().is_fullscreen(&monitor_rect)?;
 
+    // Skip fullscreen state transitions if this window changed state
+    // recently. Prevents oscillation when windows (e.g. RDP clients)
+    // fight the WM over fullscreen positioning.
+    let handle = window.native().handle;
+    let in_cooldown = state
+      .fullscreen_cooldowns
+      .get(&handle)
+      .is_some_and(|ts| ts.elapsed() < Duration::from_millis(500));
+
     match window.state() {
-      WindowState::Fullscreen(fullscreen_state) => {
+      WindowState::Fullscreen(fullscreen_state) if !in_cooldown => {
         // Restore the window if it's no longer fullscreen *or* for the
         // edge case of fullscreen -> maximized -> restore from maximized.
         if (fullscreen_state.maximized || !is_fullscreen) && !is_maximized
         {
           info!("Window restored from fullscreen: {window}");
+
+          state
+            .fullscreen_cooldowns
+            .insert(handle, Instant::now());
 
           update_window_state(
             window.clone(),
@@ -97,6 +112,10 @@ pub fn handle_window_location_changed(
           )?;
         } else if is_maximized && !fullscreen_state.maximized {
           info!("Updating state from fullscreen -> maximized: {window}");
+
+          state
+            .fullscreen_cooldowns
+            .insert(handle, Instant::now());
 
           update_window_state(
             window.clone(),
@@ -109,9 +128,13 @@ pub fn handle_window_location_changed(
           )?;
         }
       }
-      _ => {
+      _ if !in_cooldown => {
         if is_maximized || is_fullscreen {
           info!("Window fullscreened: {window}");
+
+          state
+            .fullscreen_cooldowns
+            .insert(handle, Instant::now());
 
           // Update the window to be fullscreen.
           update_window_state(
@@ -155,6 +178,8 @@ pub fn handle_window_location_changed(
           }
         }
       }
+      // Window is in fullscreen cooldown — skip state transitions.
+      _ => {}
     }
   }
 
