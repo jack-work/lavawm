@@ -213,11 +213,13 @@ impl NativeWindow {
     Ok(is_visible && !self.is_cloaked()?)
   }
 
-  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
-  /// be present even if the window isn't actually visible. The
-  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
-  /// visible.
-  fn is_cloaked(&self) -> anyhow::Result<bool> {
+  /// Returns the raw `DWMWA_CLOAKED` flags for this window.
+  ///
+  /// Possible flag bits:
+  /// - `0x1` (`DWM_CLOAKED_APP`): cloaked by an application (e.g. a WM).
+  /// - `0x2` (`DWM_CLOAKED_SHELL`): cloaked by the Windows shell.
+  /// - `0x4` (`DWM_CLOAKED_INHERITED`): inherited from a cloaked owner.
+  pub fn cloaked_flags(&self) -> anyhow::Result<u32> {
     let mut cloaked = 0u32;
 
     unsafe {
@@ -230,7 +232,15 @@ impl NativeWindow {
       )
     }?;
 
-    Ok(cloaked != 0)
+    Ok(cloaked)
+  }
+
+  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
+  /// be present even if the window isn't actually visible. The
+  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
+  /// visible.
+  fn is_cloaked(&self) -> anyhow::Result<bool> {
+    Ok(self.cloaked_flags()? != 0)
   }
 
   pub fn is_manageable(&self) -> anyhow::Result<bool> {
@@ -924,6 +934,13 @@ impl NativeWindow {
   }
 
   pub fn cleanup(&self) {
+    // Uncloak first (for HideMethod::Cloak), then show (for
+    // HideMethod::Hide). Both are needed because we don't know which
+    // hide method was active.
+    if let Err(err) = self.set_cloaked(false) {
+      warn!("Failed to uncloak window: {:?}", err);
+    }
+
     if let Err(err) = self.show() {
       warn!("Failed to show window: {:?}", err);
     }
