@@ -33,7 +33,8 @@ use crate::commands::window::unmanage_window;
 use crate::{
   commands::{
     container::set_focused_descendant, general::platform_sync,
-    monitor::add_monitor, window::manage_window,
+    monitor::{add_monitor, bind_workspaces_to_monitor},
+    window::manage_window,
   },
   models::{
     Container, Monitor, NonTilingWindow, RootContainer, WindowContainer,
@@ -127,13 +128,26 @@ impl WmState {
     &mut self,
     config: &mut UserConfig,
   ) -> anyhow::Result<()> {
+    // Recover any windows left cloaked by a previous WM instance that
+    // exited without cleanup. Must run before manageable_windows() since
+    // cloaked windows are otherwise filtered out as invisible.
+    if let Err(err) = Platform::recover_orphaned_windows() {
+      warn!("Failed to recover orphaned windows: {:?}", err);
+    }
+
     // Get the originally focused window when the WM was started.
     let foreground_window = Platform::foreground_window();
 
-    // Create a monitor, and consequently a workspace, for each detected
-    // native monitor.
+    // Create monitors first, then bind workspaces in a second pass.
+    // Platform::sorted_monitors() returns monitors already sorted, so
+    // indices are correct for workspace binding.
+    let mut monitors = Vec::new();
     for native_monitor in Platform::sorted_monitors()? {
-      add_monitor(native_monitor, self, config)?;
+      monitors.push(add_monitor(native_monitor, self)?);
+    }
+
+    for monitor in monitors {
+      bind_workspaces_to_monitor(&monitor, self, config)?;
     }
 
     // Manage windows in reverse z-order (bottom to top). This helps to

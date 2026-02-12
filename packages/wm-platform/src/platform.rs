@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use std::{
   os::windows::io::AsRawHandle,
   path::{Path, PathBuf},
@@ -5,6 +23,7 @@ use std::{
 };
 
 use anyhow::{bail, Context};
+use tracing::{info, warn};
 use windows::{
   core::{w, PCWSTR},
   Win32::{
@@ -118,6 +137,50 @@ impl Platform {
         .filter(|window| window.is_manageable().unwrap_or(false))
         .collect(),
     )
+  }
+
+  /// Recovers windows that were left cloaked by a previous WM instance
+  /// that exited without proper cleanup (crash, force kill, etc.).
+  ///
+  /// Enumerates all top-level windows, finds those with the
+  /// `DWM_CLOAKED_APP` flag (app-cloaked, not shell-cloaked), and
+  /// uncloaks them. This must be called before `manageable_windows()`
+  /// since cloaked windows are filtered out by `is_manageable()`.
+  pub fn recover_orphaned_windows() -> anyhow::Result<()> {
+    let mut recovered = 0u32;
+
+    for window in native_window::available_windows()? {
+      let flags = match window.cloaked_flags() {
+        Ok(flags) => flags,
+        Err(_) => continue,
+      };
+
+      // LavaWM's set_cloak(1, 2) produces DWM_CLOAKED_SHELL (0x2), so
+      // we must include shell-cloaked windows. DWM_CLOAKED_APP (0x1)
+      // covers the theoretical case where the cloaking mechanism changes.
+      // We uncloak any non-zero cloaked window — this also uncloaks
+      // windows on Windows Virtual Desktops, but since LavaWM is about
+      // to re-manage and re-cloak everything anyway, that's fine.
+      if flags != 0 {
+        if let Err(err) = window.set_cloaked(false) {
+          warn!(
+            "Failed to recover cloaked window (handle={}): {:?}",
+            window.handle, err
+          );
+        } else {
+          recovered += 1;
+        }
+      }
+    }
+
+    if recovered > 0 {
+      info!(
+        "Recovered {} window(s) orphaned by a previous instance.",
+        recovered
+      );
+    }
+
+    Ok(())
   }
 
   /// Creates a new `EventListener` for the specified user config.
