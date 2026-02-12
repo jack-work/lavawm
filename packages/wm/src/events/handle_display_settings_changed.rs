@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use anyhow::Context;
 use tracing::info;
 use wm_platform::Platform;
@@ -86,17 +104,21 @@ pub fn handle_display_settings_changed(
     }
   }
 
-  let mut new_monitors: Vec<Monitor> = Vec::new();
+  let mut newly_added_monitors: Vec<Monitor> = Vec::new();
 
   for native_monitor in new_native_monitors {
-    if pending_monitors.is_empty() {
-      let monitor = add_monitor(native_monitor, state)?;
-      new_monitors.push(monitor);
-      Ok(())
-    } else {
-      let monitor = pending_monitors.remove(0);
-      update_monitor(&monitor, native_monitor, state)
-    }?;
+    match pending_monitors.first() {
+      Some(_) => {
+        let monitor = pending_monitors.remove(0);
+        update_monitor(&monitor, native_monitor, state)?;
+      }
+      // Add monitor if it doesn't exist in state. Workspace binding
+      // is deferred until after monitors are sorted.
+      None => {
+        let monitor = add_monitor(native_monitor, state)?;
+        newly_added_monitors.push(monitor);
+      }
+    }
   }
 
   // Remove any monitors that no longer exist and move their workspaces
@@ -112,11 +134,13 @@ pub fn handle_display_settings_changed(
     }
   }
 
-  // Sort monitors by position.
+  // Sort monitors by position *before* binding workspaces, so that
+  // `monitor.index()` reflects the correct sorted position.
   sort_monitors(&state.root_container)?;
 
-  for new_monitor in new_monitors {
-    move_bounded_workspaces_to_new_monitor(&new_monitor, state, config)?;
+  // Now bind workspaces to newly added monitors using correct indices.
+  for monitor in newly_added_monitors {
+    move_bounded_workspaces_to_new_monitor(&monitor, state, config)?;
   }
 
   for window in state.windows() {

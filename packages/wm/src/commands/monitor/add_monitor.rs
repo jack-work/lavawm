@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use anyhow::Context;
 use tracing::info;
 use wm_common::WmEvent;
@@ -14,6 +32,10 @@ use crate::{
   wm_state::WmState,
 };
 
+/// Creates and attaches a monitor to the container tree without binding
+/// any workspaces. Call `move_bounded_workspaces_to_new_monitor`
+/// afterwards to set up workspace bindings (ideally after monitors have
+/// been sorted).
 pub fn add_monitor(
   native_monitor: NativeMonitor,
   state: &mut WmState,
@@ -38,6 +60,9 @@ pub fn add_monitor(
   Ok(monitor)
 }
 
+/// Moves bound workspaces to a newly added monitor based on workspace
+/// configs. Should be called after all monitors have been added and
+/// sorted so that `monitor.index()` reflects the correct position.
 pub fn move_bounded_workspaces_to_new_monitor(
   monitor: &Monitor,
   state: &mut WmState,
