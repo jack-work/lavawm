@@ -1,3 +1,23 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+use std::time::Instant;
+
 use anyhow::Context;
 use tracing::{info, warn};
 use wm_common::WindowState;
@@ -25,6 +45,18 @@ pub fn update_window_state(
 ) -> anyhow::Result<WindowContainer> {
   if window.state() == target_state {
     return Ok(window);
+  }
+
+  // Set cooldown whenever entering or leaving fullscreen. This prevents
+  // `handle_window_location_changed` from reversing an explicit state
+  // change (e.g. a user keybind toggle) when the window's intermediate
+  // position is momentarily detected as fullscreen/maximized.
+  if matches!(window.state(), WindowState::Fullscreen(_))
+    || matches!(target_state, WindowState::Fullscreen(_))
+  {
+    state
+      .fullscreen_cooldowns
+      .insert(window.native().handle, Instant::now());
   }
 
   info!("Updating window state: {:?}.", target_state);
