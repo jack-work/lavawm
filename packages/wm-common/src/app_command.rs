@@ -278,6 +278,10 @@ pub enum InvokeCommand {
   /// Debug: inject a fake ghost window with an invalid HWND into the
   /// container tree.  Use with wm-cleanup-windows to test cleanup.
   WmInjectGhost,
+  /// Recover orphaned windows from a previous WM instance. Uncloaks
+  /// all cloaked windows and manages any unmanaged visible windows
+  /// into the focused workspace.
+  WmRecoverWindows,
   WmExit,
   WmRedraw,
   WmReloadConfig,

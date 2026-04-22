@@ -740,6 +740,62 @@ impl WmState {
     Ok(())
   }
 
+  /// Recovers orphaned windows from a previous WM instance.
+  ///
+  /// Uncloaks all cloaked windows, then manages any visible windows
+  /// not already in the WM tree into the focused workspace.
+  pub fn recover_windows(
+    &mut self,
+    config: &mut UserConfig,
+  ) -> anyhow::Result<()> {
+    // Uncloak any windows left cloaked by a previous instance.
+    if let Err(err) = self.dispatcher.recover_orphaned_windows() {
+      warn!("Failed to uncloak orphaned windows: {:?}", err);
+    }
+
+    let focused_workspace = self
+      .focused_container()
+      .and_then(|c| c.workspace())
+      .context("No focused workspace.")?;
+
+    // Collect handles of windows already managed by the WM.
+    let managed_ids: std::collections::HashSet<_> =
+      self.windows().iter().map(|w| w.native().id()).collect();
+
+    // Also collect ignored window IDs.
+    let ignored_ids: std::collections::HashSet<_> =
+      self.ignored_windows.iter().map(|w| w.id()).collect();
+
+    let visible = self.dispatcher.visible_windows()?;
+    let mut recovered = 0u32;
+
+    for native_window in visible {
+      if managed_ids.contains(&native_window.id())
+        || ignored_ids.contains(&native_window.id())
+      {
+        continue;
+      }
+
+      manage_window(
+        native_window,
+        Some(focused_workspace.clone().into()),
+        self,
+        config,
+      )?;
+      recovered += 1;
+    }
+
+    if recovered > 0 {
+      tracing::info!(
+        "Recovered {} orphaned window(s) into workspace '{}'.",
+        recovered,
+        focused_workspace.config().name
+      );
+    }
+
+    Ok(())
+  }
+
   /// Cleans up windows that are no longer alive.
   ///
   /// This addresses the "ghost window" issue where applications may

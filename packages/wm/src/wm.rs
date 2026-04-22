@@ -778,6 +778,9 @@ impl WindowManager {
         state.cleanup_invalid_windows()
       }
       InvokeCommand::WmInjectGhost => state.inject_ghost_window(),
+      InvokeCommand::WmRecoverWindows => {
+        state.recover_windows(config)
+      }
       InvokeCommand::WmDisableBindingMode { name } => {
         disable_binding_mode(name, state);
         Ok(())
