@@ -742,32 +742,60 @@ impl WmState {
 
   /// Recovers orphaned windows from a previous WM instance.
   ///
-  /// Uncloaks all cloaked windows, then manages any visible windows
-  /// not already in the WM tree into the focused workspace.
+  /// Moves all windows managed by the WM on non-displayed workspaces
+  /// into the currently focused workspace (uncloaking them in the
+  /// process), then discovers any unmanaged visible windows and
+  /// manages them into the focused workspace as well.
   pub fn recover_windows(
     &mut self,
     config: &mut UserConfig,
   ) -> anyhow::Result<()> {
-    // Uncloak any windows left cloaked by a previous instance.
-    if let Err(err) = self.dispatcher.recover_orphaned_windows() {
-      warn!("Failed to uncloak orphaned windows: {:?}", err);
-    }
+    use crate::commands::container::move_container_within_tree;
+    use crate::commands::general::platform_sync;
 
     let focused_workspace = self
       .focused_container()
       .and_then(|c| c.workspace())
       .context("No focused workspace.")?;
 
-    // Collect handles of windows already managed by the WM.
+    // Phase 1: Move all managed windows from non-displayed workspaces
+    // into the focused workspace.
+    let windows_to_move: Vec<_> = self
+      .windows()
+      .into_iter()
+      .filter(|w| {
+        w.workspace().is_some_and(|ws| ws.id() != focused_workspace.id())
+      })
+      .collect();
+
+    let mut moved = 0u32;
+    for window in windows_to_move {
+      move_container_within_tree(
+        &window.clone().into(),
+        &focused_workspace.clone().into(),
+        focused_workspace.child_count(),
+        self,
+      )?;
+      moved += 1;
+    }
+
+    // Phase 2: Uncloak any windows left cloaked by a previous instance
+    // and manage unmanaged visible windows.
+    if let Err(err) = self.dispatcher.recover_orphaned_windows() {
+      warn!("Failed to uncloak orphaned windows: {:?}", err);
+    }
+
+    // Brief pause for DWM to process uncloak before enumerating.
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
     let managed_ids: std::collections::HashSet<_> =
       self.windows().iter().map(|w| w.native().id()).collect();
 
-    // Also collect ignored window IDs.
     let ignored_ids: std::collections::HashSet<_> =
       self.ignored_windows.iter().map(|w| w.id()).collect();
 
     let visible = self.dispatcher.visible_windows()?;
-    let mut recovered = 0u32;
+    let mut newly_managed = 0u32;
 
     for native_window in visible {
       if managed_ids.contains(&native_window.id())
@@ -782,16 +810,20 @@ impl WmState {
         self,
         config,
       )?;
-      recovered += 1;
+      newly_managed += 1;
     }
 
-    if recovered > 0 {
+    if moved > 0 || newly_managed > 0 {
       tracing::info!(
-        "Recovered {} orphaned window(s) into workspace '{}'.",
-        recovered,
-        focused_workspace.config().name
+        "Recovered windows into workspace '{}': {} moved, {} newly managed.",
+        focused_workspace.config().name,
+        moved,
+        newly_managed,
       );
     }
+
+    // Sync all changes to the platform.
+    platform_sync(self, config)?;
 
     Ok(())
   }
