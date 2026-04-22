@@ -271,7 +271,7 @@ pub fn handle_window_moved_or_resized(
     // Skip fullscreen state transitions if this window changed state
     // recently. Prevents oscillation when windows (e.g. RDP clients)
     // fight the WM over fullscreen positioning.
-    let handle = window.native().handle;
+    let handle = window.native().id().0;
     let in_cooldown = state
       .fullscreen_cooldowns
       .get(&handle)

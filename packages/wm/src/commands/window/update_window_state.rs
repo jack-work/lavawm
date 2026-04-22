@@ -56,7 +56,7 @@ pub fn update_window_state(
   {
     state
       .fullscreen_cooldowns
-      .insert(window.native().handle, Instant::now());
+      .insert(window.native().id().0, Instant::now());
   }
 
   info!("Updating window state: {:?}.", target_state);
