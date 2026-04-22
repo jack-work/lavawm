@@ -1,7 +1,25 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use std::time::Duration;
 
 use tokio::task;
-use tracing::warn;
+use tracing::{info, warn};
 use windows::{
   core::PWSTR,
   Win32::{
@@ -715,11 +733,13 @@ impl NativeWindow {
     self.set_transparency(&OpacityValue::from_alpha(target_alpha))
   }
 
-  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
-  /// be present even if the window isn't actually visible. The
-  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
-  /// visible.
-  fn is_cloaked(&self) -> crate::Result<bool> {
+  /// Returns the raw `DWMWA_CLOAKED` flags for this window.
+  ///
+  /// Possible flag bits:
+  /// - `0x1` (`DWM_CLOAKED_APP`): cloaked by an application.
+  /// - `0x2` (`DWM_CLOAKED_SHELL`): cloaked by the Windows shell.
+  /// - `0x4` (`DWM_CLOAKED_INHERITED`): inherited from a cloaked owner.
+  pub fn cloaked_flags(&self) -> crate::Result<u32> {
     let mut cloaked = 0u32;
 
     unsafe {
@@ -732,7 +752,15 @@ impl NativeWindow {
       )
     }?;
 
-    Ok(cloaked != 0)
+    Ok(cloaked)
+  }
+
+  /// Whether the window is cloaked. For some UWP apps, `WS_VISIBLE` will
+  /// be present even if the window isn't actually visible. The
+  /// `DWMWA_CLOAKED` attribute is used to check whether these apps are
+  /// visible.
+  fn is_cloaked(&self) -> crate::Result<bool> {
+    Ok(self.cloaked_flags()? != 0)
   }
 }
 
@@ -781,6 +809,65 @@ pub(crate) fn visible_windows(
       .map(Into::into)
       .collect(),
   )
+}
+
+/// Uncloaks all top-level windows left cloaked by a previous WM instance.
+///
+/// Must run before `visible_windows()` since cloaked windows are
+/// filtered out as invisible. Uncloaks any window with non-zero
+/// `DWMWA_CLOAKED` flags — the WM will re-manage and re-cloak as
+/// needed.
+pub(crate) fn recover_orphaned_windows() -> crate::Result<()> {
+  let mut handles: Vec<isize> = Vec::new();
+
+  #[allow(clippy::items_after_statements)]
+  extern "system" fn enum_proc(handle: HWND, data: LPARAM) -> BOOL {
+    let handles = data.0 as *mut Vec<isize>;
+    // SAFETY: `data` points to a valid `Vec<isize>` on the caller's
+    // stack and lives for the duration of `EnumWindows`.
+    unsafe { (*handles).push(handle.0) };
+    true.into()
+  }
+
+  // SAFETY: `handles` is a valid mutable pointer passed via LPARAM;
+  // `EnumWindows` calls `enum_proc` synchronously.
+  unsafe {
+    EnumWindows(
+      Some(enum_proc),
+      LPARAM(std::ptr::from_mut(&mut handles) as _),
+    )
+  }?;
+
+  let mut recovered = 0u32;
+
+  for handle in handles {
+    let window = NativeWindow::new(handle);
+
+    let flags = match window.cloaked_flags() {
+      Ok(flags) => flags,
+      Err(_) => continue,
+    };
+
+    if flags != 0 {
+      if let Err(err) = window.set_cloaked(false) {
+        warn!(
+          "Failed to recover cloaked window (handle={}): {:?}",
+          handle, err
+        );
+      } else {
+        recovered += 1;
+      }
+    }
+  }
+
+  if recovered > 0 {
+    info!(
+      "Recovered {} window(s) orphaned by a previous instance.",
+      recovered
+    );
+  }
+
+  Ok(())
 }
 
 /// Implements [`Dispatcher::focused_window`].

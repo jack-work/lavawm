@@ -138,6 +138,13 @@ impl WmState {
     &mut self,
     config: &mut UserConfig,
   ) -> anyhow::Result<()> {
+    // Recover any windows left cloaked by a previous WM instance that
+    // exited without cleanup. Must run before visible_windows() since
+    // cloaked windows are otherwise filtered out as invisible.
+    if let Err(err) = self.dispatcher.recover_orphaned_windows() {
+      warn!("Failed to recover orphaned windows: {:?}", err);
+    }
+
     // Get the originally focused window when the WM was started.
     let focused_window = self.dispatcher.focused_window().ok();
 
@@ -777,6 +784,13 @@ impl Drop for WmState {
       // Reset any effects on Windows.
       #[cfg(target_os = "windows")]
       {
+        // Uncloak first (for HideMethod::Cloak), then show (for
+        // HideMethod::Hide). Both are needed because we don't know
+        // which hide method was active.
+        if let Err(err) = window.native().set_cloaked(false) {
+          warn!("Failed to uncloak window: {:?}", err);
+        }
+
         if let Err(err) = window.native().show() {
           warn!("Failed to show window: {:?}", err);
         }
