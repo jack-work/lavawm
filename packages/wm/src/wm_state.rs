@@ -23,8 +23,7 @@ use tokio::sync::mpsc::{self};
 use tracing::warn;
 use uuid::Uuid;
 use wm_common::{
-  BindingModeConfig, FloatingStateConfig, HideCorner, WindowState,
-  WmEvent,
+  BindingModeConfig, FloatingStateConfig, HideCorner, WindowState, WmEvent,
 };
 use wm_platform::{
   Direction, Dispatcher, Display, LengthValue, NativeWindow, Point, Rect,
@@ -750,8 +749,9 @@ impl WmState {
     &mut self,
     config: &mut UserConfig,
   ) -> anyhow::Result<()> {
-    use crate::commands::container::move_container_within_tree;
-    use crate::commands::general::platform_sync;
+    use crate::commands::{
+      container::move_container_within_tree, general::platform_sync,
+    };
 
     let focused_workspace = self
       .focused_container()
@@ -764,7 +764,8 @@ impl WmState {
       .windows()
       .into_iter()
       .filter(|w| {
-        w.workspace().is_some_and(|ws| ws.id() != focused_workspace.id())
+        w.workspace()
+          .is_some_and(|ws| ws.id() != focused_workspace.id())
       })
       .collect();
 

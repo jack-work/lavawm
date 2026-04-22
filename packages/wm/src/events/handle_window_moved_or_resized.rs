@@ -301,9 +301,7 @@ pub fn handle_window_moved_or_resized(
         return Ok(());
       }
 
-      state
-        .fullscreen_cooldowns
-        .insert(handle, Instant::now());
+      state.fullscreen_cooldowns.insert(handle, Instant::now());
 
       let fullscreen_state = if let WindowState::Fullscreen(
         fullscreen_state,
@@ -348,9 +346,7 @@ pub fn handle_window_moved_or_resized(
         // Window is no longer maximized/fullscreen and should be restored.
         tracing::info!("Restoring window from fullscreen: {window}");
 
-        state
-          .fullscreen_cooldowns
-          .insert(handle, Instant::now());
+        state.fullscreen_cooldowns.insert(handle, Instant::now());
 
         update_window_state(
           window.clone(),
