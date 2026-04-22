@@ -58,7 +58,7 @@ jobs:
       - name: Build release
         env:
           VERSION_NUMBER: ${{ steps.version.outputs.number }}
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --workspace --target ${{ matrix.target }}
 
       - name: Package binaries
         shell: bash
