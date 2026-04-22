@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use anyhow::Context;
 use wm_common::{
   try_warn, ActiveDrag, ActiveDragOperation, DisplayState,
@@ -266,8 +268,17 @@ pub fn handle_window_moved_or_resized(
       }
     };
 
+    // Skip fullscreen state transitions if this window changed state
+    // recently. Prevents oscillation when windows (e.g. RDP clients)
+    // fight the WM over fullscreen positioning.
+    let handle = window.native().handle;
+    let in_cooldown = state
+      .fullscreen_cooldowns
+      .get(&handle)
+      .is_some_and(|ts| ts.elapsed() < Duration::from_millis(500));
+
     // Handle a window being maximized or entering fullscreen.
-    if is_maximized || should_fullscreen {
+    if !in_cooldown && (is_maximized || should_fullscreen) {
       let is_same_state = is_maximized
         && matches!(
           window.state(),
@@ -289,6 +300,10 @@ pub fn handle_window_moved_or_resized(
       if is_same_state {
         return Ok(());
       }
+
+      state
+        .fullscreen_cooldowns
+        .insert(handle, Instant::now());
 
       let fullscreen_state = if let WindowState::Fullscreen(
         fullscreen_state,
@@ -329,9 +344,13 @@ pub fn handle_window_moved_or_resized(
     }
 
     match window.state() {
-      WindowState::Fullscreen(_) => {
+      WindowState::Fullscreen(_) if !in_cooldown => {
         // Window is no longer maximized/fullscreen and should be restored.
         tracing::info!("Restoring window from fullscreen: {window}");
+
+        state
+          .fullscreen_cooldowns
+          .insert(handle, Instant::now());
 
         update_window_state(
           window.clone(),

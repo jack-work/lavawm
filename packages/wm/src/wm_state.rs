@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::time::Instant;
+use std::{
+  collections::HashMap,
+  time::{Duration, Instant},
+};
 
 use anyhow::Context;
 use tokio::sync::mpsc::{self};
@@ -90,6 +93,11 @@ pub struct WmState {
   /// Whether the OS focused window is the same as the WM focused window.
   pub is_focus_synced: bool,
 
+  /// Per-window cooldown on fullscreen state transitions. Prevents
+  /// oscillation when windows (e.g. RDP clients) fight the WM over
+  /// fullscreen positioning.
+  pub fullscreen_cooldowns: HashMap<isize, Instant>,
+
   /// Whether the initial state has been populated.
   has_initialized: bool,
 
@@ -117,6 +125,7 @@ impl WmState {
       ignored_windows: Vec::new(),
       is_paused: false,
       is_focus_synced: false,
+      fullscreen_cooldowns: HashMap::new(),
       has_initialized: false,
       event_tx,
       exit_tx,
