@@ -361,7 +361,7 @@ fn start_watcher_process() -> anyhow::Result<tokio::process::Child, Error>
   let watcher_path = env::current_exe()?
     .parent()
     .context("Failed to resolve path to the watcher process.")?
-    .join("glazewm-watcher");
+    .join("lavawm-watcher");
 
   Command::new(&watcher_path)
     .spawn()
