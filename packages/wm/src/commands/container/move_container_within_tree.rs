@@ -73,12 +73,18 @@ pub fn move_container_within_tree(
   // Handle case where target parent is the LCA. For example, when swapping
   // sibling containers or moving a container to a direct ancestor.
   if *target_parent == lowest_common_ancestor {
-    return move_to_lowest_common_ancestor(
+    move_to_lowest_common_ancestor(
       container_to_move,
       &lowest_common_ancestor,
       target_index,
       state,
-    );
+    )?;
+
+    for ancestor in ancestors.iter().rev() {
+      flatten_child_split_containers(ancestor)?;
+    }
+
+    return Ok(());
   }
 
   // Get ancestor of `container_to_move` that is a direct child of the LCA.

@@ -50,5 +50,9 @@ copyright header described in [CLAUDE.md](./CLAUDE.md).
 - `shell-exec` no longer leaks a process handle per invocation.
 - Fullscreen cooldowns are keyed by `WindowId` and pruned; `wm` builds on
   macOS again.
-- Lint fixes so CI passes; `wm-watcher` checks the target OS rather than
+- Minimizing, floating or fullscreening a window that was the only child
+  of nested split containers no longer leaves an empty split holding a
+  blank tiling slot. Empty split children are removed whenever split
+  containers are flattened.
+- CI runs the `wm` unit tests; lint fixes so CI passes; `wm-watcher` checks the target OS rather than
   the host; shell scripts are checked out with LF line endings.
