@@ -205,6 +205,17 @@ impl WmState {
     self.root_container.monitors()
   }
 
+  pub fn display_layout(&self) -> Vec<(Rect, u32)> {
+    self
+      .monitors()
+      .iter()
+      .map(|monitor| {
+        let properties = monitor.native_properties();
+        (properties.bounds, properties.dpi)
+      })
+      .collect()
+  }
+
   pub fn workspaces(&self) -> Vec<Workspace> {
     self
       .monitors()
