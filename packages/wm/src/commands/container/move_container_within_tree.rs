@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use anyhow::Context;
 use wm_common::{VecDequeExt, WmEvent};
 
@@ -198,4 +216,93 @@ pub fn lowest_common_ancestor(
   }
 
   None
+}
+
+#[cfg(test)]
+mod tests {
+  use tokio::sync::mpsc;
+  use wm_common::TilingDirection;
+  use wm_platform::Dispatcher;
+
+  use super::move_container_within_tree;
+  use crate::{
+    models::{Container, SplitContainer, TilingWindow, Workspace},
+    traits::CommonGetters,
+    wm_state::WmState,
+  };
+
+  fn mock_state() -> WmState {
+    let (event_tx, _) = mpsc::unbounded_channel();
+    let (exit_tx, _) = mpsc::unbounded_channel();
+    WmState::new(Dispatcher::mock(), event_tx, exit_tx)
+  }
+
+  fn split(
+    tiling_direction: TilingDirection,
+    child: impl Into<crate::models::TilingContainer>,
+  ) -> SplitContainer {
+    SplitContainer::mock()
+      .tiling_direction(tiling_direction)
+      .tiling_containers(vec![child.into()])
+      .call()
+  }
+
+  fn assert_no_splits(workspace: &Workspace, expected_children: usize) {
+    let children = workspace.children();
+    assert_eq!(children.len(), expected_children);
+    assert!(children.iter().all(|child| !child.is_split()));
+  }
+
+  #[test]
+  fn moving_only_child_out_of_nested_split_leaves_no_empty_split() {
+    let state = mock_state();
+    let window = TilingWindow::mock().call();
+    let nested = split(TilingDirection::Horizontal, window.clone());
+
+    let workspace = Workspace::mock()
+      .tiling_direction(TilingDirection::Vertical)
+      .tiling_containers(vec![
+        TilingWindow::mock().call().into(),
+        split(TilingDirection::Vertical, nested).into(),
+      ])
+      .call();
+
+    let workspace_container: Container = workspace.clone().into();
+    move_container_within_tree(
+      &window.into(),
+      &workspace_container,
+      workspace.child_count(),
+      &state,
+    )
+    .unwrap();
+
+    assert_no_splits(&workspace, 2);
+  }
+
+  #[test]
+  fn moving_only_child_out_of_deep_split_chain_leaves_no_empty_split() {
+    let state = mock_state();
+    let window = TilingWindow::mock().call();
+    let innermost = split(TilingDirection::Vertical, window.clone());
+    let middle = split(TilingDirection::Horizontal, innermost);
+
+    let workspace = Workspace::mock()
+      .tiling_direction(TilingDirection::Vertical)
+      .tiling_containers(vec![
+        TilingWindow::mock().call().into(),
+        split(TilingDirection::Vertical, middle).into(),
+      ])
+      .call();
+
+    let workspace_container: Container = workspace.clone().into();
+    move_container_within_tree(
+      &window.into(),
+      &workspace_container,
+      workspace.child_count(),
+      &state,
+    )
+    .unwrap();
+
+    assert_no_splits(&workspace, 2);
+  }
 }
