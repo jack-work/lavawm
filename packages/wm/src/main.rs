@@ -133,7 +133,7 @@ async fn start_wm(
     if !dispatcher.has_ax_permission(true) {
       anyhow::bail!(
         "Accessibility permissions are not granted. In System Preferences, \
-         go to Privacy & Security > Accessibility and enable GlazeWM."
+         go to Privacy & Security > Accessibility and enable LavaWM."
       );
     }
   }
@@ -318,11 +318,11 @@ async fn start_wm(
 
 /// Initialize logging with the specified verbosity level.
 ///
-/// Error logs are saved to `~/.glzr/glazewm/errors.log`.
+/// Error logs are saved to `~/.glzr/lavawm/errors.log`.
 fn setup_logging(verbosity: &Verbosity) -> anyhow::Result<()> {
   let error_log_dir = home::home_dir()
     .context("Unable to get home directory.")?
-    .join(".glzr/glazewm/");
+    .join(".glzr/lavawm/");
 
   let error_writer =
     tracing_appender::rolling::never(error_log_dir, "errors.log");
