@@ -1,4 +1,22 @@
-use std::time::{Duration, Instant};
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+use std::time::Instant;
 
 use anyhow::Context;
 use wm_common::{
@@ -20,7 +38,7 @@ use crate::{
   models::{Monitor, NonTilingWindow, WindowContainer},
   traits::{CommonGetters, WindowGetters},
   user_config::UserConfig,
-  wm_state::WmState,
+  wm_state::{WmState, FULLSCREEN_COOLDOWN},
 };
 
 #[allow(clippy::too_many_lines)]
@@ -271,11 +289,11 @@ pub fn handle_window_moved_or_resized(
     // Skip fullscreen state transitions if this window changed state
     // recently. Prevents oscillation when windows (e.g. RDP clients)
     // fight the WM over fullscreen positioning.
-    let handle = window.native().id().0;
+    let handle = window.native().id();
     let in_cooldown = state
       .fullscreen_cooldowns
       .get(&handle)
-      .is_some_and(|ts| ts.elapsed() < Duration::from_millis(500));
+      .is_some_and(|ts| ts.elapsed() < FULLSCREEN_COOLDOWN);
 
     // Handle a window being maximized or entering fullscreen.
     if !in_cooldown && (is_maximized || should_fullscreen) {

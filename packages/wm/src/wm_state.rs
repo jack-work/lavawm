@@ -16,7 +16,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{collections::HashMap, time::Instant};
+use std::{
+  collections::HashMap,
+  time::{Duration, Instant},
+};
 
 use anyhow::Context;
 use tokio::sync::mpsc::{self};
@@ -27,7 +30,7 @@ use wm_common::{
 };
 use wm_platform::{
   Direction, Dispatcher, Display, LengthValue, NativeWindow, Point, Rect,
-  RectDelta,
+  RectDelta, WindowId,
 };
 #[cfg(target_os = "windows")]
 use wm_platform::{NativeWindowWindowsExt, OpacityValue};
@@ -48,6 +51,8 @@ use crate::{
   traits::{CommonGetters, PositionGetters, WindowGetters},
   user_config::UserConfig,
 };
+
+pub const FULLSCREEN_COOLDOWN: Duration = Duration::from_millis(500);
 
 pub struct WmState {
   /// Root node of the container tree. Monitors are the children of the
@@ -92,7 +97,7 @@ pub struct WmState {
   /// Per-window cooldown on fullscreen state transitions. Prevents
   /// oscillation when windows (e.g. RDP clients) fight the WM over
   /// fullscreen positioning.
-  pub fullscreen_cooldowns: HashMap<isize, Instant>,
+  pub fullscreen_cooldowns: HashMap<WindowId, Instant>,
 
   /// Whether the initial state has been populated.
   has_initialized: bool,
@@ -705,6 +710,7 @@ impl WmState {
   /// Injects a fake window with an invalid HWND into the container tree.
   ///
   /// Used to test `wm-cleanup-windows`.
+  #[cfg(target_os = "windows")]
   pub fn inject_ghost_window(&mut self) -> anyhow::Result<()> {
     let workspace = self
       .focused_container()
@@ -860,6 +866,10 @@ impl WmState {
 
     // Prune ignored windows that are no longer valid.
     self.ignored_windows.retain(NativeWindow::is_valid);
+
+    self
+      .fullscreen_cooldowns
+      .retain(|_, changed_at| changed_at.elapsed() < FULLSCREEN_COOLDOWN);
 
     Ok(())
   }
