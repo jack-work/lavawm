@@ -11,6 +11,13 @@ general:
   # Commands to run after the WM config is reloaded.
   config_reload_commands: []
 
+  # Commands to run once the display layout settles after a monitor is
+  # connected, disconnected, rearranged or rescaled, or after waking from
+  # sleep. Working-area changes alone do not trigger them.
+  # Example: The below command restarts Zebar, which can strand or freeze
+  # its bars when the display layout changes.
+  display_change_commands: ['shell-exec --hide-window powershell -NoProfile -Command "Stop-Process -Name zebar -Force -ErrorAction Ignore; Wait-Process -Name zebar -Timeout 5 -ErrorAction Ignore; Start-Process zebar"']
+
   # Whether to automatically focus windows underneath the cursor.
   focus_follows_cursor: false
 

@@ -26,11 +26,14 @@ When modifying or creating any `.rs` source file, ensure it has the GPL-3.0 copy
 
 Use `/gpl-notice` to batch-check and fix all modified files.
 
+Record every user-visible change, and every upstream sync (with the new base commit), in [NOTICE.md](./NOTICE.md).
+
 ## Build
 
 - Toolchain: Rust nightly, target `aarch64-pc-windows-msvc` (local) or both x64+arm64 (CI)
 - Build: `cargo build --release`
 - Binaries: `lavawm.exe`, `lavawm-cli.exe`, `lavawm-watcher.exe`
+- Check from Linux or macOS: `cargo clippy --workspace --all-targets --all-features --target aarch64-pc-windows-msvc -- -D warnings`
 
 ## Branch
 
@@ -41,6 +44,8 @@ Use `/gpl-notice` to batch-check and fix all modified files.
 ## Naming
 
 - Binary names: `lavawm`, `lavawm-cli`, `lavawm-watcher`
-- Config dir: `~/.glzr/lavawm/`
+- Config dir and error log: `~/.glzr/lavawm/`
+- Single-instance mutex: `Global\a1b2c3d4-5e6f-7a8b-9c0d-lavawm000001`
 - Env var: `LAVAWM_CONFIG_PATH`
 - IPC port: 6123 (shared with GlazeWM/Zebar)
+- After an upstream rebase, grep for `glazewm`/`GlazeWM` in non-comment code: the April 2026 rebase silently reverted the mutex, log path and tray names

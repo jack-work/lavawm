@@ -19,7 +19,9 @@
 **LavaWM** is a keyboard-driven tiling window manager for Windows, forked from the excellent [GlazeWM v3](https://github.com/glzr-io/glazewm). It inherits all the golden, flaky layers of GlazeWM and adds a few of its own:
 
 - Ghost window cleanup (`wm-cleanup-windows`) &mdash; manually sweep away stale windows
+- Window recovery (`wm-recover-windows`) &mdash; pull every window back onto the focused workspace
 - Fullscreen oscillation fix &mdash; stops RDP and other apps from fighting the WM in a rapid fullscreen/floating loop
+- Dock and sleep resilience &mdash; reconciles monitors after wake and runs `display_change_commands` (e.g. restart Zebar) once the layout settles
 - Windows on ARM (aarch64) first-class build support
 - Can run side-by-side with a stock GlazeWM installation
 
@@ -114,7 +116,27 @@ Quick reference of LavaWM-specific commands:
 | Command | Description |
 |---------|-------------|
 | `wm-cleanup-windows` | Remove ghost windows (invalid HWNDs) from the tree |
+| `wm-recover-windows` | Move all windows from hidden workspaces, and unmanaged visible windows, to the focused workspace |
 | `wm-inject-ghost` | Debug: inject a fake ghost for testing cleanup |
+
+LavaWM-specific config:
+
+| Key | Description |
+|---------|-------------|
+| `general.display_change_commands` | Commands run 3s after the last monitor connect, disconnect, rearrange or rescale, or after waking from sleep. Working-area changes alone do not trigger them. |
+
+## Zebar after docking or sleep
+
+Zebar 3.x can lose its bars when the display layout changes: its relaunch drops every widget from its own state before recreating them, so one failed or stalled recreation leaves bars stranded at old monitor coordinates (or unpositioned behind other windows), with no tracked widgets and nothing left to relaunch. A second `zebar` or `zebar startup` is forwarded to the wedged instance and does nothing, so only a process restart recovers it.
+
+LavaWM restarts it for you once the layout settles:
+
+```yaml
+general:
+  display_change_commands: ['shell-exec --hide-window powershell -NoProfile -Command "Stop-Process -Name zebar -Force -ErrorAction Ignore; Wait-Process -Name zebar -Timeout 5 -ErrorAction Ignore; Start-Process zebar"']
+```
+
+Bind the same command to a key for manual recovery. The stop and start run in one process so the new instance never races the old one's single-instance lock. If LavaWM runs elevated, Zebar does too, and only an elevated process (such as LavaWM's `shell-exec`) can stop it.
 
 ## Known Issues
 
@@ -123,7 +145,7 @@ Quick reference of LavaWM-specific commands:
 
 ## License
 
-This project is licensed under **GPL-3.0**, same as the upstream GlazeWM. See [LICENSE](./LICENSE) for details.
+This project is licensed under **GPL-3.0**, same as the upstream GlazeWM. See [LICENSE.md](./LICENSE.md) for details, and [NOTICE.md](./NOTICE.md) for the upstream base and a dated record of what LavaWM changed.
 
 You are free to fork, modify, and redistribute &mdash; but derivative works must also be GPL-3.0 and source must be made available.
 
