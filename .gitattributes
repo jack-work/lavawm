@@ -1,2 +1,3 @@
 # Set CRLF as the line ending to use for all files that Git interprets as text files.
 * text=auto eol=crlf
+*.sh text eol=lf
