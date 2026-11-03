@@ -49,10 +49,7 @@ use windows::{
       Input::KeyboardAndMouse::{
         GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON,
       },
-      Shell::{
-        ShellExecuteExW, SEE_MASK_NOASYNC, SEE_MASK_NOCLOSEPROCESS,
-        SHELLEXECUTEINFOW,
-      },
+      Shell::{ShellExecuteExW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW},
       WindowsAndMessaging::{
         GetCursorPos, MessageBoxW, SetCursorPos, SystemParametersInfoW,
         ANIMATIONINFO, MB_ICONERROR, MB_OK, MB_SYSTEMMODAL,
@@ -313,7 +310,7 @@ impl DispatcherExtWindows for Dispatcher {
       lpParameters: PCWSTR(args_wide.as_ptr()),
       lpDirectory: PCWSTR(directory_wide.as_ptr()),
       nShow: if hide_window { SW_HIDE } else { SW_NORMAL }.0 as _,
-      fMask: SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC,
+      fMask: SEE_MASK_NOASYNC,
       ..Default::default()
     };
 
