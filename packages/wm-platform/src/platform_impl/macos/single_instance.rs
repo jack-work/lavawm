@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use std::{
   fs::{self, File, TryLockError},
   path::PathBuf,
@@ -51,7 +69,7 @@ impl SingleInstance {
   }
 
   /// Returns the path to the lock file:
-  /// `~/Library/Application Support/glazewm/.lock`.
+  /// `~/Library/Application Support/lavawm/.lock`.
   fn lock_file_path() -> crate::Result<PathBuf> {
     let home = home::home_dir().ok_or_else(|| {
       crate::Error::Platform(
@@ -59,6 +77,6 @@ impl SingleInstance {
       )
     })?;
 
-    Ok(home.join("Library/Application Support/glazewm/.lock"))
+    Ok(home.join("Library/Application Support/lavawm/.lock"))
   }
 }

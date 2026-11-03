@@ -206,7 +206,7 @@ impl SystemTray {
 
     let tray_icon = TrayIconBuilder::new()
       .with_menu(Box::new(tray_menu))
-      .with_tooltip(format!("GlazeWM v{}", env!("VERSION_NUMBER")))
+      .with_tooltip(format!("LavaWM v{}", env!("VERSION_NUMBER")))
       .with_icon(icon)
       .build()?;
 
@@ -300,10 +300,10 @@ fn auto_launch_instance() -> anyhow::Result<AutoLaunch> {
   let args: [&str; 0] = [];
 
   #[cfg(target_os = "windows")]
-  let instance = AutoLaunch::new("GlazeWM", &exe_path, &args);
+  let instance = AutoLaunch::new("LavaWM", &exe_path, &args);
 
   #[cfg(target_os = "macos")]
-  let instance = AutoLaunch::new("GlazeWM", &exe_path, false, &args);
+  let instance = AutoLaunch::new("LavaWM", &exe_path, false, &args);
 
   Ok(instance)
 }
