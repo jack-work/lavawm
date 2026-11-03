@@ -843,9 +843,8 @@ pub(crate) fn recover_orphaned_windows() -> crate::Result<()> {
   for handle in handles {
     let window = NativeWindow::new(handle);
 
-    let flags = match window.cloaked_flags() {
-      Ok(flags) => flags,
-      Err(_) => continue,
+    let Ok(flags) = window.cloaked_flags() else {
+      continue;
     };
 
     if flags != 0 {
