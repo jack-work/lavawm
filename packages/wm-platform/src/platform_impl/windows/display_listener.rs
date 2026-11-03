@@ -1,6 +1,24 @@
-use std::sync::{
-  atomic::{AtomicBool, Ordering},
-  Arc,
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+use std::{
+  sync::{Mutex, PoisonError},
+  time::{Duration, Instant},
 };
 
 use tokio::sync::mpsc;
@@ -11,7 +29,33 @@ use windows::Win32::UI::WindowsAndMessaging::{
   WM_POWERBROADCAST, WM_SETTINGCHANGE,
 };
 
-use crate::{Dispatcher, DispatcherExtWindows};
+use crate::{Dispatcher, DispatcherExtWindows, DisplayEvent};
+
+const WAKE_COALESCE_DURATION: Duration = Duration::from_secs(5);
+
+enum PowerState {
+  Awake,
+  Suspended,
+  Waking(Instant),
+}
+
+impl PowerState {
+  fn is_settling(&mut self) -> bool {
+    match self {
+      Self::Awake => false,
+      Self::Suspended => true,
+      Self::Waking(wake_time) => {
+        let is_settling = wake_time.elapsed() < WAKE_COALESCE_DURATION;
+
+        if !is_settling {
+          *self = Self::Awake;
+        }
+
+        is_settling
+      }
+    }
+  }
+}
 
 /// Platform-specific implementation of [`DisplayListener`].
 pub(crate) struct DisplayListener {
@@ -22,24 +66,41 @@ pub(crate) struct DisplayListener {
 impl DisplayListener {
   /// Implements [`DisplayListener::new`].
   pub(crate) fn new(
-    event_tx: mpsc::UnboundedSender<()>,
+    event_tx: mpsc::UnboundedSender<DisplayEvent>,
     dispatcher: &Dispatcher,
   ) -> crate::Result<Self> {
-    let is_system_suspended = Arc::new(AtomicBool::new(false));
+    let power_state = Mutex::new(PowerState::Awake);
 
     let callback_id = dispatcher.register_wndproc_callback(Box::new(
       move |_hwnd, message, wparam, _lparam| {
+        let mut power_state =
+          power_state.lock().unwrap_or_else(PoisonError::into_inner);
+
         match message {
           WM_POWERBROADCAST => {
             #[allow(clippy::cast_possible_truncation)]
             match wparam as u32 {
               // System is resuming from sleep/hibernation.
               PBT_APMRESUMEAUTOMATIC | PBT_APMRESUMESUSPEND => {
-                is_system_suspended.store(false, Ordering::Relaxed);
+                let is_duplicate = matches!(
+                  *power_state,
+                  PowerState::Waking(wake_time)
+                    if wake_time.elapsed() < WAKE_COALESCE_DURATION
+                );
+
+                if !is_duplicate {
+                  *power_state = PowerState::Waking(Instant::now());
+
+                  let event_tx = event_tx.clone();
+                  std::thread::spawn(move || {
+                    std::thread::sleep(WAKE_COALESCE_DURATION);
+                    let _ = event_tx.send(DisplayEvent::Resumed);
+                  });
+                }
               }
               // System is entering sleep/hibernation.
               PBT_APMSUSPEND => {
-                is_system_suspended.store(true, Ordering::Relaxed);
+                *power_state = PowerState::Suspended;
               }
               _ => {}
             }
@@ -50,7 +111,7 @@ impl DisplayListener {
             let should_emit = {
               // Ignore display change messages if the system hasn't fully
               // resumed from sleep.
-              if is_system_suspended.load(Ordering::Relaxed) {
+              if power_state.is_settling() {
                 false
               } else {
                 #[allow(clippy::cast_possible_truncation)]
@@ -75,7 +136,7 @@ impl DisplayListener {
             };
 
             if should_emit {
-              let _ = event_tx.send(());
+              let _ = event_tx.send(DisplayEvent::SettingsChanged);
             }
 
             Some(0)

@@ -32,7 +32,11 @@ use std::io::IsTerminal;
 use std::{env, path::PathBuf, process, time::Duration};
 
 use anyhow::{Context, Error};
-use tokio::{process::Command, signal};
+use tokio::{
+  process::Command,
+  signal,
+  time::{sleep_until, Instant},
+};
 use tracing::Level;
 use tracing_subscriber::{
   fmt::{self, writer::MakeWriterExt},
@@ -42,9 +46,9 @@ use wm_common::{AppCommand, InvokeCommand, Verbosity, WmEvent};
 #[cfg(target_os = "macos")]
 use wm_platform::DispatcherExtMacOs;
 use wm_platform::{
-  Dispatcher, DisplayListener, EventLoop, KeybindingListener,
-  MouseEventKind, MouseListener, PlatformEvent, SingleInstance,
-  WindowListener,
+  Dispatcher, DisplayEvent, DisplayListener, EventLoop,
+  KeybindingListener, MouseEventKind, MouseListener, PlatformEvent,
+  SingleInstance, WindowListener,
 };
 
 use crate::{
@@ -65,6 +69,8 @@ mod wm_state;
 
 #[cfg(test)]
 mod test_utils;
+
+const DISPLAY_SETTLE_DURATION: Duration = Duration::from_secs(3);
 
 /// Main entry point for the application.
 ///
@@ -202,6 +208,8 @@ async fn start_wm(
   cleanup_interval
     .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+  let mut display_change_deadline: Option<Instant> = None;
+
   loop {
     let res = tokio::select! {
       _ = signal::ctrl_c() => {
@@ -224,9 +232,35 @@ async fn start_wm(
         tracing::debug!("Received window event: {:?}", event);
         wm.process_event(PlatformEvent::Window(event), &mut config)
       },
-      Some(()) = display_listener.next_event() => {
-        tracing::debug!("Received display settings changed event.");
-        wm.process_event(PlatformEvent::DisplaySettingsChanged, &mut config)
+      Some(event) = display_listener.next_event() => {
+        tracing::info!("Received display event: {:?}", event);
+        let layout = wm.state.display_layout();
+
+        let res = wm.process_event(
+          PlatformEvent::DisplaySettingsChanged,
+          &mut config,
+        );
+
+        if (event == DisplayEvent::Resumed
+          || wm.state.display_layout() != layout)
+          && !config.value.general.display_change_commands.is_empty()
+        {
+          display_change_deadline =
+            Some(Instant::now() + DISPLAY_SETTLE_DURATION);
+        }
+
+        res
+      },
+      () = sleep_until(display_change_deadline.unwrap_or_else(Instant::now)),
+        if display_change_deadline.is_some() => {
+        display_change_deadline = None;
+        tracing::info!("Running display change commands.");
+
+        wm.process_commands(
+          &config.value.general.display_change_commands.clone(),
+          None,
+          &mut config,
+        ).map(|_| ())
       },
       Some(event) = keybinding_listener.next_event() => {
         tracing::debug!("Received keyboard event: {:?}", event);

@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use serde::{Deserialize, Serialize};
 use wm_platform::{
   Color, CornerStyle, Key, Keybinding, LengthValue, OpacityValue,
@@ -90,6 +108,10 @@ pub struct GeneralConfig {
   /// Commands to run after the WM config has reloaded.
   pub config_reload_commands: Vec<InvokeCommand>,
 
+  /// Commands to run once the display layout settles after a change or
+  /// after waking from sleep.
+  pub display_change_commands: Vec<InvokeCommand>,
+
   /// How windows should be hidden when switching workspaces.
   #[serde(deserialize_with = "deserialize_hide_method")]
   pub hide_method: HideMethod,
@@ -107,6 +129,7 @@ impl Default for GeneralConfig {
       startup_commands: vec![],
       shutdown_commands: vec![],
       config_reload_commands: vec![],
+      display_change_commands: vec![],
       hide_method: {
         #[cfg(target_os = "macos")]
         {

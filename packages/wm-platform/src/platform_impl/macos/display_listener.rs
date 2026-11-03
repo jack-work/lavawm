@@ -1,3 +1,21 @@
+// Copyright (C) 2024 glzr-io <https://github.com/glzr-io>
+// Copyright (C) 2026 jack-work <https://github.com/jack-work>
+//
+// This file is part of LavaWM, a fork of GlazeWM.
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 use std::time::{Duration, Instant};
 
 use objc2::rc::Retained;
@@ -8,7 +26,7 @@ use crate::{
     NotificationCenter, NotificationEvent, NotificationName,
     NotificationObserver,
   },
-  Dispatcher, ThreadBound,
+  Dispatcher, DisplayEvent, ThreadBound,
 };
 
 /// Platform-specific implementation of [`DisplayListener`].
@@ -20,7 +38,7 @@ pub(crate) struct DisplayListener {
 impl DisplayListener {
   /// Creates an instance of `DisplayListener`.
   pub(crate) fn new(
-    event_tx: mpsc::UnboundedSender<()>,
+    event_tx: mpsc::UnboundedSender<DisplayEvent>,
     dispatcher: &Dispatcher,
   ) -> crate::Result<Self> {
     let dispatcher_clone = dispatcher.clone();
@@ -48,7 +66,7 @@ impl DisplayListener {
 
   /// Registers notification observers on the main thread.
   fn add_observers(
-    event_tx: mpsc::UnboundedSender<()>,
+    event_tx: mpsc::UnboundedSender<DisplayEvent>,
     dispatcher: Dispatcher,
   ) -> ThreadBound<Retained<NotificationObserver>> {
     let (observer, mut events_rx) = NotificationObserver::new();
@@ -104,7 +122,7 @@ impl DisplayListener {
             std::thread::spawn(move || {
               std::thread::sleep(WAKE_COALESCE_DURATION);
 
-              if let Err(err) = event_tx.send(()) {
+              if let Err(err) = event_tx.send(DisplayEvent::Resumed) {
                 tracing::warn!(
                   "Failed to send display change event: {}",
                   err
@@ -127,7 +145,8 @@ impl DisplayListener {
               wake_time = None;
             }
 
-            if let Err(err) = event_tx.send(()) {
+            if let Err(err) = event_tx.send(DisplayEvent::SettingsChanged)
+            {
               tracing::warn!(
                 "Failed to send display change event: {}",
                 err
