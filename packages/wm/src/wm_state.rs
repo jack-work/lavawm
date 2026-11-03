@@ -793,7 +793,7 @@ impl WmState {
       self.windows().iter().map(|w| w.native().id()).collect();
 
     let ignored_ids: std::collections::HashSet<_> =
-      self.ignored_windows.iter().map(|w| w.id()).collect();
+      self.ignored_windows.iter().map(NativeWindow::id).collect();
 
     let visible = self.dispatcher.visible_windows()?;
     let mut newly_managed = 0u32;
