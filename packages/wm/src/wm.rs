@@ -775,7 +775,10 @@ impl WindowManager {
         config,
       ),
       InvokeCommand::WmCleanupWindows => state.cleanup_invalid_windows(),
+      #[cfg(target_os = "windows")]
       InvokeCommand::WmInjectGhost => state.inject_ghost_window(),
+      #[cfg(not(target_os = "windows"))]
+      InvokeCommand::WmInjectGhost => Ok(()),
       InvokeCommand::WmRecoverWindows => state.recover_windows(config),
       InvokeCommand::WmDisableBindingMode { name } => {
         disable_binding_mode(name, state);
