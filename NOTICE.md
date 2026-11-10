@@ -56,3 +56,11 @@ copyright header described in [CLAUDE.md](./CLAUDE.md).
   containers are flattened.
 - CI runs the `wm` unit tests; lint fixes so CI passes; `wm-watcher` checks the target OS rather than
   the host; shell scripts are checked out with LF line endings.
+
+### 2026-11-10
+
+- Pausing (`wm-toggle-pause`) now releases every keybinding except the
+  toggle itself. The keyboard listener was refreshed with the pause state
+  hard-coded to `false`, so while paused LavaWM still swallowed its bound
+  keys (e.g. `alt+p`) and then ignored them, and they never reached the
+  focused application.
