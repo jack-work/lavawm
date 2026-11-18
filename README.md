@@ -129,14 +129,23 @@ LavaWM-specific config:
 
 Zebar 3.x can lose its bars when the display layout changes: its relaunch drops every widget from its own state before recreating them, so one failed or stalled recreation leaves bars stranded at old monitor coordinates (or unpositioned behind other windows), with no tracked widgets and nothing left to relaunch. A second `zebar` or `zebar startup` is forwarded to the wedged instance and does nothing, so only a process restart recovers it.
 
-LavaWM restarts it for you once the layout settles:
+A fresh Zebar can also stall on its own: the widget window appears unpositioned and its WebView2 never starts, permanently. A plain stop-and-start hit this at least twice in normal use, and stopping Zebar's leftover WebView2 processes before starting made it worse (7 of 10 restarts stalled in testing on 2026-11-18). Another restart recovers it.
+
+[`resources/scripts/restart-zebar.ps1`](./resources/scripts/restart-zebar.ps1) restarts Zebar, waits up to 10s for a WebView2 process owned by the new Zebar, and retries up to 4 times. It skips if a restart is already running and logs to `restart-zebar.log` beside itself. Copy it to `%USERPROFILE%\.glzr\lavawm\` and use it for startup, display changes and a recovery key:
 
 ```yaml
 general:
-  display_change_commands: ['shell-exec --hide-window powershell -NoProfile -Command "Stop-Process -Name zebar -Force -ErrorAction Ignore; Wait-Process -Name zebar -Timeout 5 -ErrorAction Ignore; Start-Process zebar"']
+  startup_commands: ['shell-exec --hide-window powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.glzr\lavawm\restart-zebar.ps1']
+  display_change_commands: ['shell-exec --hide-window powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.glzr\lavawm\restart-zebar.ps1']
+
+keybindings:
+  - commands: ['shell-exec --hide-window powershell -NoProfile -ExecutionPolicy Bypass -File %USERPROFILE%\.glzr\lavawm\restart-zebar.ps1']
+    bindings: ['alt+shift+z']
 ```
 
-Bind the same command to a key for manual recovery. The stop and start run in one process so the new instance never races the old one's single-instance lock. If LavaWM runs elevated, Zebar does too, and only an elevated process (such as LavaWM's `shell-exec`) can stop it.
+If LavaWM runs elevated, Zebar does too, and only an elevated process (such as LavaWM's `shell-exec`) can stop it.
+
+A bar that freezes after running a while is likely [glzr-io/zebar#330](https://github.com/glzr-io/zebar/issues/330): with the `systray` provider, each widget's WebView2 grows past 1 GB within minutes. Restarting clears it.
 
 ## Known Issues
 
