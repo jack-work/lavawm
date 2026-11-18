@@ -131,7 +131,7 @@ Zebar 3.x can lose its bars when the display layout changes: its relaunch drops 
 
 A fresh Zebar can also stall on its own: the widget window appears unpositioned and its WebView2 never starts, permanently. A plain stop-and-start hit this at least twice in normal use, and stopping Zebar's leftover WebView2 processes before starting made it worse (7 of 10 restarts stalled in testing on 2026-11-18). Another restart recovers it.
 
-[`resources/scripts/restart-zebar.ps1`](./resources/scripts/restart-zebar.ps1) restarts Zebar, waits up to 10s for a WebView2 process owned by the new Zebar, and retries up to 4 times. It skips if a restart is already running and logs to `restart-zebar.log` beside itself. Copy it to `%USERPROFILE%\.glzr\lavawm\` and use it for startup, display changes and a recovery key:
+[`resources/scripts/restart-zebar.ps1`](./resources/scripts/restart-zebar.ps1) restarts Zebar, waits up to 10s for the new process to start WebView2 and move its widget windows off Tauri's default 800x600, and retries up to 4 times. Killed Zebar and WebView2 processes can linger unkillable, so only the process it started counts. It skips if a restart is already running and logs to `restart-zebar.log` beside itself. Copy it to `%USERPROFILE%\.glzr\lavawm\` and use it for startup, display changes and a recovery key:
 
 ```yaml
 general:

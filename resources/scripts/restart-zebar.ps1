@@ -18,31 +18,66 @@ if (-not $mutex.WaitOne(0)) {
   exit 0
 }
 
-function Get-ZebarWebViews {
-  $zebarIds = @(Get-Process zebar -ErrorAction SilentlyContinue | ForEach-Object Id)
-  if (-not $zebarIds) { return @() }
-  @(Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe'" |
-    Where-Object { $zebarIds -contains $_.ParentProcessId })
+Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class ZebarWindows {
+  delegate bool EnumProc(IntPtr hwnd, IntPtr lParam);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc callback, IntPtr lParam);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, StringBuilder text, int max);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hwnd);
+  [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+  struct Rect { public int Left, Top, Right, Bottom; }
+  public static List<int[]> WidgetSizes(uint pid) {
+    var sizes = new List<int[]>();
+    EnumWindows((hwnd, _) => {
+      uint owner;
+      GetWindowThreadProcessId(hwnd, out owner);
+      var title = new StringBuilder(256);
+      GetWindowText(hwnd, title, title.Capacity);
+      Rect rect;
+      if (owner == pid && IsWindowVisible(hwnd) && title.ToString().StartsWith("Zebar - ") && GetWindowRect(hwnd, out rect)) {
+        sizes.Add(new[] { rect.Right - rect.Left, rect.Bottom - rect.Top });
+      }
+      return true;
+    }, IntPtr.Zero);
+    return sizes;
+  }
+}
+'@
+
+function Test-ZebarDrawn([System.Diagnostics.Process]$Zebar) {
+  $webViews = Get-CimInstance Win32_Process -Filter "Name = 'msedgewebview2.exe' AND ParentProcessId = $($Zebar.Id)"
+  $sizes = [ZebarWindows]::WidgetSizes($Zebar.Id)
+  $unplaced = @($sizes | Where-Object { $_[0] * 3 -eq $_[1] * 4 })
+  [bool]$webViews -and $sizes.Count -gt 0 -and $unplaced.Count -eq 0
 }
 
 try {
   for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
     Stop-Process -Name zebar -Force -ErrorAction SilentlyContinue
     Wait-Process -Name zebar -Timeout 5 -ErrorAction SilentlyContinue
-    Start-Process zebar
+    $zebar = Start-Process zebar -PassThru
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
       Start-Sleep -Milliseconds 500
-      $webViews = Get-ZebarWebViews
-    } while (-not $webViews -and (Get-Date) -lt $deadline)
+      $drawn = Test-ZebarDrawn $zebar
+    } while (-not $drawn -and -not $zebar.HasExited -and (Get-Date) -lt $deadline)
 
-    if ($webViews) {
-      Write-Log "attempt $attempt ok"
+    if ($drawn) {
+      Write-Log "attempt $attempt ok: zebar $($zebar.Id)"
       exit 0
     }
 
-    Write-Log "attempt $attempt stalled: no WebView2 process after ${TimeoutSeconds}s"
+    if ($zebar.HasExited) {
+      Write-Log "attempt $attempt failed: zebar $($zebar.Id) exited with $($zebar.ExitCode)"
+    } else {
+      Write-Log "attempt $attempt stalled: zebar $($zebar.Id) not drawn after ${TimeoutSeconds}s"
+    }
   }
 
   Write-Log "gave up after $Attempts attempts"
