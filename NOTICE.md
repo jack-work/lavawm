@@ -55,7 +55,7 @@ copyright header described in [CLAUDE.md](./CLAUDE.md).
   blank tiling slot. Empty split children are removed whenever split
   containers are flattened.
 - Added `resources/scripts/restart-zebar.ps1`, which restarts Zebar and
-  retries until its WebView2 starts (2026-11-18).
+  retries until the new process has placed its widget windows (2026-11-18).
 - CI runs the `wm` unit tests; lint fixes so CI passes; `wm-watcher` checks the target OS rather than
   the host; shell scripts are checked out with LF line endings.
 
